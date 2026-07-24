@@ -31,6 +31,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local postgres test cluster + screenshots
+/.pgdata
+/.pgsock
+/screenshots
+.env
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
