@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import { chunks, documents } from "@/lib/db/schema";
-import { and, cosineDistance, desc, eq, gt, sql } from "drizzle-orm";
+import { asc, cosineDistance, eq, gt, sql } from "drizzle-orm";
 import { embedText } from "./embeddings";
 
 export interface RetrievedChunk {
@@ -12,9 +12,19 @@ export interface RetrievedChunk {
   similarity: number;
 }
 
+/** Chunks scoring below this cosine similarity are treated as irrelevant. */
+const MIN_SIMILARITY = 0.05;
+
 /**
  * Semantic search across the org's knowledge base using pgvector cosine
  * similarity. Returns the top-k most relevant chunks with their source docs.
+ *
+ * The nearest-neighbour search is isolated in a subquery that orders by the
+ * raw `<=>` distance operator ascending with the LIMIT pushed down. That exact
+ * shape is what pgvector's HNSW index can serve; ordering by a derived
+ * expression such as `1 - (embedding <=> q)` descending forces a sequential
+ * scan plus a sort over every chunk in the org. The similarity floor is
+ * therefore applied *after* the limit, so a query may return fewer than k rows.
  */
 export async function retrieveContext(
   orgId: string,
@@ -24,25 +34,36 @@ export async function retrieveContext(
   const queryEmbedding = await embedText(query);
   const db = getDb();
 
-  const similarity = sql<number>`1 - (${cosineDistance(
-    chunks.embedding,
-    queryEmbedding
-  )})`;
+  const distance = cosineDistance(chunks.embedding, queryEmbedding);
 
-  const rows = await db
+  const nearest = db
     .select({
       chunkId: chunks.id,
       documentId: chunks.documentId,
-      documentTitle: documents.title,
-      source: documents.source,
       content: chunks.content,
-      similarity,
+      distance: sql<number>`${distance}`.as("distance"),
     })
     .from(chunks)
-    .innerJoin(documents, eq(chunks.documentId, documents.id))
-    .where(and(eq(chunks.orgId, orgId), gt(similarity, 0.05)))
-    .orderBy((t) => desc(t.similarity))
-    .limit(k);
+    .where(eq(chunks.orgId, orgId))
+    .orderBy(asc(distance))
+    .limit(k)
+    .as("nearest");
+
+  const similarity = sql<number>`1 - ${nearest.distance}`;
+
+  const rows = await db
+    .select({
+      chunkId: nearest.chunkId,
+      documentId: nearest.documentId,
+      documentTitle: documents.title,
+      source: documents.source,
+      content: nearest.content,
+      similarity,
+    })
+    .from(nearest)
+    .innerJoin(documents, eq(nearest.documentId, documents.id))
+    .where(gt(similarity, MIN_SIMILARITY))
+    .orderBy(asc(nearest.distance));
 
   return rows.map((r) => ({
     chunkId: r.chunkId,
