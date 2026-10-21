@@ -1,0 +1,38 @@
+competitor scan
+march 2026
+internal. not for the data room.
+sources are mixed. crunchbase where it says so, otherwise "i looked at the site."
+
+weski
+package is the product. flight + stay + transfer, one checkout.
+resort pages are thin. no weather on the resort tab.
+revenue: i'm using $8M. pitchbook-ish, don't quote me. a blog said higher.
+raised a little. not the story.
+
+ski.com
+person plans the trip. lodging on-page via expedia. lifts, sometimes rentals.
+revenue: $15M. i had $20M in a note and $40M in another and i picked 15 because the middle felt wrong and 15 was in a 2024 article. low confidence.
+they bought rocky mountain tours years ago.
+
+onthesnow
+search plus snow. app does favorite-resort alerts and cams.
+1.7M visits/month was the crunchbase traffic note, with a big month-over-month jump. revenue on crunchbase is "<$1M" which does not match the traffic. leave both.
+
+skiresort.info
+filters for days. snow depth, slope length, the lot.
+ui is a junk drawer. they make money on ads not checkout.
+visits were small (25k) and then a crazy monthly jump. revenue <$1M crunchbase.
+
+opensnow
+app. forecasts, cams, avalanche, experts. subscription after a trial. not a booking site.
+<$1M crunchbase. $3M seed back in 2022.
+
+liftopia
+lift tickets, then they bounce you to the resort. spotlio bought them.
+raised $12.68M. valuation $21.5M in sep 2018. revenue band $1-10M. useless band.
+
+mindtrip
+not ski. chatbot, map pins, sends you away to book.
+i asked it for a ski trip in february and got a beach. $20M raised, $55M post in 2024. ignore unless an investor brings up "ai travel."
+
+our line at the time of this memo: we were still saying flights were "next." that is this memo's product sentence. if product has killed flights, this sentence is stale. i am not updating it in this file.

@@ -48,12 +48,17 @@ export async function getDocuments(orgId: string) {
       title: documents.title,
       source: documents.source,
       mimeType: documents.mimeType,
+      content: documents.content,
+      docDate: documents.docDate,
+      datePrecision: documents.datePrecision,
+      docKind: documents.docKind,
+      series: documents.series,
       createdAt: documents.createdAt,
-      chunkCount: sql<number>`(select count(*) from chunks where chunks.document_id = ${documents.id})`,
+      chunkCount: sql<number>`(select count(*)::int from chunks where chunks.document_id = documents.id)`,
     })
     .from(documents)
     .where(eq(documents.orgId, orgId))
-    .orderBy(desc(documents.createdAt));
+    .orderBy(sql`${documents.docDate} desc nulls last`, desc(documents.createdAt));
 }
 
 export async function getCompetitors(orgId: string) {

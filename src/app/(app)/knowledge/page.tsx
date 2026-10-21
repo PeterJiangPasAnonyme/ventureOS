@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDocDate } from "@/lib/utils";
 import { FileText, Building2, Swords } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,15 @@ export default async function KnowledgePage() {
     getCompetitors(org.id),
     getMarketNotes(org.id),
   ]);
+
+  const newestInSeries = new Map<string, string>();
+  for (const d of docs) {
+    if (!d.series) continue;
+    const cur = docs.find((x) => x.id === newestInSeries.get(d.series!));
+    if (!cur || (d.docDate?.getTime() ?? 0) > (cur.docDate?.getTime() ?? 0)) {
+      newestInSeries.set(d.series, d.id);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -62,17 +71,30 @@ export default async function KnowledgePage() {
                 <div className="space-y-2">
                   {docs.map((d) => (
                     <Card key={d.id}>
-                      <CardContent className="flex items-center justify-between p-4">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <div className="text-sm font-medium">{d.title}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDate(d.createdAt)} · {d.chunkCount} chunks
+                      <CardContent className="p-4">
+                        <details>
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="text-sm font-medium">{d.title}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Dated {formatDocDate(d.docDate, d.datePrecision)} · added{" "}
+                                  {formatDate(d.createdAt)} · {d.chunkCount} chunks
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <Badge variant="secondary">{d.source}</Badge>
+                            <div className="flex items-center gap-1.5">
+                              {d.series && newestInSeries.get(d.series) !== d.id ? (
+                                <Badge variant="outline">older version</Badge>
+                              ) : null}
+                              <Badge variant="secondary">{d.docKind}</Badge>
+                            </div>
+                          </summary>
+                          <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed text-foreground">
+                            {d.content}
+                          </pre>
+                        </details>
                       </CardContent>
                     </Card>
                   ))}
@@ -135,6 +157,11 @@ export default async function KnowledgePage() {
                               {c.weaknesses}
                             </p>
                           ) : null}
+                          {c.pricing ? <p>Pricing: {c.pricing}</p> : null}
+                          {c.fundingStage ? (
+                            <p>Funding: {c.fundingStage}</p>
+                          ) : null}
+                          {c.notes ? <p>{c.notes}</p> : null}
                         </CardContent>
                       </Card>
                     ))}

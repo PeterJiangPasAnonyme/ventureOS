@@ -1,4 +1,6 @@
 import type { CopilotType, Organization } from "@/lib/db/schema";
+import { formatDocDate } from "@/lib/utils";
+import { lookupInstruction, type RequiredLookup } from "./lookup";
 
 function orgContext(org: Organization): string {
   return [
@@ -16,10 +18,13 @@ const BASE_BEHAVIOR = `
 You are an agent that decomposes ambiguous founder requests into concrete steps.
 Operating principles:
 1. First form a short plan, then gather context using your tools before answering.
-2. ALWAYS call retrieve_context to ground your answer in company knowledge before relying on general knowledge.
-3. Prefer real data from tools over assumptions. If information is missing, say so explicitly.
-4. Cite the sources you used (document titles, competitors, meetings, web results).
-5. End with a structured, skimmable brief and concrete next steps.
+2. ALWAYS call retrieve_context first. Split the request into 1-4 short searches, one per fact or source you need, and pass them in one call.
+3. Every retrieved chunk states its document kind and date. When two documents disagree, the newer one wins unless the user asks about an earlier version. Set include_history only when the user asks what an earlier deck, scan, or call said, or what changed; set as_of for what was known at a past date.
+4. Write only what the tools returned. A company figure must appear in a get_metric record, or be labeled as a dated claim from a deck, call, or scan. A count must appear in a query_dataset result. What is in motion, blocked, or due must appear in list_tasks or list_objectives.
+5. If a date, file, or person the user named is missing from the tool results, say that it did not contain the asked fact. Do not fill the gap.
+6. Leave out retrieved material that does not answer the question. Do not invent names, numbers, owners, or decisions.
+7. Cite the sources you used (document titles with their dates, competitors, meetings, web results).
+8. End with a structured, skimmable brief and concrete next steps.
 `.trim();
 
 const COPILOT_INSTRUCTIONS: Record<CopilotType, string> = {
@@ -70,12 +75,16 @@ End with a concise brief and next steps.
 
 export function systemPromptFor(
   copilotType: CopilotType,
-  org: Organization
+  org: Organization,
+  lookup: RequiredLookup | null = null
 ): string {
   return [
+    `Today is ${formatDocDate(new Date())}.`,
     orgContext(org),
     "",
     BASE_BEHAVIOR,
+    "",
+    lookupInstruction(lookup),
     "",
     COPILOT_INSTRUCTIONS[copilotType],
   ].join("\n");

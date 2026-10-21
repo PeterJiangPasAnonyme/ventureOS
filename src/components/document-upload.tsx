@@ -23,11 +23,17 @@ export function DocumentUpload() {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
+  const [docDate, setDocDate] = useState("");
+  const [docKind, setDocKind] = useState("upload");
+  const [series, setSeries] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setTitle("");
     setNote("");
+    setDocDate("");
+    setDocKind("upload");
+    setSeries("");
     setError(null);
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -42,6 +48,9 @@ export function DocumentUpload() {
         const form = new FormData();
         form.append("file", file);
         form.append("title", title || file.name);
+        if (docDate) form.append("docDate", docDate);
+        form.append("docKind", docKind);
+        if (series.trim()) form.append("series", series.trim());
         res = await fetch("/api/ingest", { method: "POST", body: form });
       } else if (note.trim()) {
         res = await fetch("/api/ingest", {
@@ -51,6 +60,9 @@ export function DocumentUpload() {
             title: title || "Untitled note",
             content: note,
             source: "note",
+            docDate: docDate || undefined,
+            docKind: docKind === "upload" ? "note" : docKind,
+            series: series.trim() || undefined,
           }),
         });
       } else {
@@ -96,6 +108,42 @@ export function DocumentUpload() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Q3 board deck"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-date">Document date</Label>
+              <Input
+                id="doc-date"
+                type="date"
+                value={docDate}
+                onChange={(e) => setDocDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="doc-kind">Kind</Label>
+              <select
+                id="doc-kind"
+                value={docKind}
+                onChange={(e) => setDocKind(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="upload">Document</option>
+                <option value="note">Meeting note</option>
+                <option value="call">Investor call note</option>
+                <option value="deck">Deck</option>
+                <option value="scan">Competitor scan</option>
+                <option value="roadmap">Roadmap</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="doc-series">Version of</Label>
+            <Input
+              id="doc-series"
+              value={series}
+              onChange={(e) => setSeries(e.target.value)}
+              placeholder="Optional, e.g. investor-deck. Newest in a series is searched by default."
             />
           </div>
           <div className="space-y-1.5">

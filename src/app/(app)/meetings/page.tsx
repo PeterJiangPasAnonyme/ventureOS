@@ -86,6 +86,11 @@ export default async function MeetingsPage() {
                         </ul>
                       </div>
                     ) : null}
+                    {m.transcript ? (
+                      <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-xs leading-relaxed text-foreground">
+                        {m.transcript}
+                      </pre>
+                    ) : null}
                   </CardContent>
                 </Card>
               );

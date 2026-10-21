@@ -1,0 +1,24 @@
+competitor scan
+august 2026
+replaces the march scan for anything an investor might ask. march file is still in the folder. people will attach the wrong one.
+
+weski
+same product: flight, stay, transfer.
+revenue: do not use the march $8M. the sourcing sheet we trust says $5-6M and even that says estimated.
+raised $1.44M total. feb 2023 round was $0.43M at $2.26M post. small. don't compare their valuation to ours.
+
+ski.com
+same product: expert planner, expedia lodging, lifts.
+revenue: the sheet says estimated under $5M, AND other sources still say $20M and $40M. march's $15M was me splitting the difference. that was wrong. say the range is unresolved. do not print $15M.
+
+onthesnow / skiresort.info / opensnow / liftopia
+no change from march. traffic and funding notes still the crunchbase ones. onthesnow revenue vs traffic still doesn't reconcile. don't smooth it.
+
+mindtrip
+still not a ski product. leave it out of the competitor slide unless asked. the sep deck might still have a logo. if it does, that's the deck being sloppy, not a change in this memo.
+
+what we sell, as of this memo
+rank by travel time, open terrain, forecast.
+package is lodging + lift or pass-day + ground transfer.
+flight is not in the package. gear is not a product. reviews are a partner feed.
+snow pass is $39 a year or $7.99 a month. i did not re-check the GL for subscriber count. don't take a subscriber number from me.

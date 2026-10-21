@@ -8,6 +8,7 @@ import { buildTools } from "./tools";
 import { systemPromptFor } from "./prompts";
 import { copilotByType } from "@/lib/constants";
 import { retrieveContext } from "./retrieval";
+import { followOnLookup, requiredLookup, type RequiredLookup } from "./lookup";
 
 export interface RunAgentArgs {
   org: Organization;
@@ -33,6 +34,29 @@ export type AgentEvent =
   | { type: "error"; message: string };
 
 const MAX_STEPS = 6;
+const GENERAL_TOOLS = ["retrieve_context", "get_metric", "query_dataset"];
+
+/** First get_metric call on a figures question is the ledger snapshot, not one claim. */
+function forceFirstLookup<T extends Record<string, { execute?: (...a: never[]) => unknown }>>(
+  tools: T,
+  lookup: RequiredLookup | null
+): T {
+  if (lookup !== "get_metric") return tools;
+  const inner = tools.get_metric;
+  if (!inner?.execute) return tools;
+  let first = true;
+  return {
+    ...tools,
+    get_metric: {
+      ...inner,
+      execute: ((args: Record<string, unknown>, opts: never) => {
+        const input = first ? { include_claims: false } : args;
+        first = false;
+        return inner.execute!(input as never, opts);
+      }) as T["get_metric"]["execute"],
+    },
+  };
+}
 
 async function persistStep(
   runId: string,
@@ -53,7 +77,7 @@ async function persistStep(
 export async function* runAgent(args: RunAgentArgs): AsyncGenerator<AgentEvent> {
   const db = getDb();
   const meta = copilotByType(args.copilotType);
-  const allowedTools = meta?.tools ?? ["retrieve_context"];
+  const allowedTools = meta?.tools ?? GENERAL_TOOLS;
 
   const [run] = await db
     .insert(agentRuns)
@@ -103,10 +127,15 @@ async function* realRun(
   allowedTools: string[],
   nextOrder: () => number
 ): AsyncGenerator<AgentEvent, string> {
-  const system = systemPromptFor(args.copilotType, args.org);
-  const tools = buildTools(
-    { orgId: args.org.id, googleAccessToken: args.googleAccessToken },
-    allowedTools
+  const lookup = requiredLookup(args.input, allowedTools);
+  const followOn = followOnLookup(lookup, allowedTools);
+  const system = systemPromptFor(args.copilotType, args.org, lookup);
+  const tools = forceFirstLookup(
+    buildTools(
+      { orgId: args.org.id, googleAccessToken: args.googleAccessToken },
+      allowedTools
+    ),
+    lookup
   );
 
   // 1) Explicit planning step for a transparent trace.
@@ -114,7 +143,15 @@ async function* realRun(
     model: chatModel(),
     system:
       "You are a planning module. Given a founder request, output 2-5 short numbered steps describing how you'll answer using the available tools. Steps only, no preamble.",
-    prompt: `Available tools: ${allowedTools.join(", ")}\n\nRequest: ${args.input}`,
+    prompt: [
+      `Available tools: ${allowedTools.join(", ")}`,
+      lookup
+        ? `Required after retrieve_context: ${lookup}${followOn ? `, then ${followOn}` : ""}.`
+        : "",
+      `Request: ${args.input}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
   });
   const planText = planRes.text.trim();
   {
@@ -135,6 +172,18 @@ async function* realRun(
     prompt: args.input,
     tools,
     stopWhen: stepCountIs(MAX_STEPS),
+    prepareStep: ({ stepNumber }) => {
+      if (stepNumber === 0 && allowedTools.includes("retrieve_context")) {
+        return { toolChoice: { type: "tool" as const, toolName: "retrieve_context" } };
+      }
+      if (stepNumber === 1 && lookup) {
+        return { toolChoice: { type: "tool" as const, toolName: lookup } };
+      }
+      if (stepNumber === 2 && followOn) {
+        return { toolChoice: { type: "tool" as const, toolName: followOn } };
+      }
+      return {};
+    },
   });
 
   let brief = "";
@@ -237,7 +286,7 @@ async function* mockRun(
   }
 
   // Retrieval (real, works offline via fallback embeddings)
-  const retrieved = await retrieveContext(args.org.id, args.input, 6);
+  const retrieved = await retrieveContext(args.org.id, { queries: [args.input], k: 6 });
   {
     const step = {
       order: nextOrder(),
@@ -249,6 +298,8 @@ async function* mockRun(
           count: retrieved.length,
           sources: retrieved.map((r) => ({
             documentTitle: r.documentTitle,
+            kind: r.docKind,
+            dated: r.docDate,
             source: r.source,
             similarity: Number(r.similarity.toFixed(3)),
             excerpt: r.content.slice(0, 300),
@@ -260,8 +311,10 @@ async function* mockRun(
     yield { type: "step", step };
   }
 
-  // One representative tool call for this copilot
-  const extraTool = allowedTools.find((t) => t !== "retrieve_context");
+  // Structured store for this question, or the first remaining copilot tool
+  const extraTool =
+    requiredLookup(args.input, allowedTools) ??
+    allowedTools.find((t) => t !== "retrieve_context");
   if (extraTool) {
     const tools = buildTools({ orgId: args.org.id }, [extraTool]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

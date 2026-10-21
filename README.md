@@ -69,7 +69,7 @@ cp .env.example .env.local
 npm run db:migrate      # applies drizzle/*.sql  (recommended)
 #   — or, for rapid iteration, enable pgvector then: npm run db:push
 
-# 4. Seed the demo startup (Northwind AI)
+# 4. Seed the demo startup (Ridgeline)
 npm run db:seed
 
 # 5. Run

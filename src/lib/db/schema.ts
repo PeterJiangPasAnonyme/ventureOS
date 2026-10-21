@@ -8,8 +8,9 @@ import {
   vector,
   pgEnum,
   index,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /* ------------------------------------------------------------------ */
 /* Enums                                                               */
@@ -60,6 +61,19 @@ export const documentSourceEnum = pgEnum("document_source", [
   "note",
   "meeting",
 ]);
+
+export const docKindEnum = pgEnum("doc_kind", [
+  "note",
+  "call",
+  "deck",
+  "scan",
+  "roadmap",
+  "ledger",
+  "dataset",
+  "upload",
+]);
+
+export const metricKindEnum = pgEnum("metric_kind", ["record", "claim"]);
 
 export const memoryTypeEnum = pgEnum("memory_type", [
   "fact",
@@ -128,10 +142,18 @@ export const documents = pgTable(
     url: text("url"),
     content: text("content").notNull().default(""),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    /** When the document itself is from (meeting date, deck month), not when it was loaded. */
+    docDate: timestamp("doc_date"),
+    /** "day" or "month": how precise docDate is. */
+    datePrecision: text("date_precision").notNull().default("day"),
+    docKind: docKindEnum("doc_kind").notNull().default("upload"),
+    /** Documents sharing a series are versions of one another; the newest is current. */
+    series: text("series"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => ({
     orgIdx: index("documents_org_idx").on(t.orgId),
+    seriesIdx: index("documents_series_idx").on(t.orgId, t.series),
   })
 );
 
@@ -157,6 +179,54 @@ export const chunks = pgTable(
       "hnsw",
       t.embedding.op("vector_cosine_ops")
     ),
+    textIdx: index("chunks_text_idx").using(
+      "gin",
+      sql`to_tsvector('english', ${t.content})`
+    ),
+  })
+);
+
+/** Exact figures: ledger values are records, figures stated in decks or calls are claims. */
+export const metrics = pgTable(
+  "metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    kind: metricKindEnum("kind").notNull(),
+    metric: text("metric").notNull(),
+    period: text("period").notNull(),
+    value: doublePrecision("value").notNull(),
+    unit: text("unit").notNull().default("number"),
+    quote: text("quote"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    orgIdx: index("metrics_org_idx").on(t.orgId),
+  })
+);
+
+/** Row-level spreadsheet data kept as a table instead of embedded text. */
+export const datasetRows = pgTable(
+  "dataset_rows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    sheet: text("sheet").notNull(),
+    rowIndex: integer("row_index").notNull(),
+    data: jsonb("data").$type<Record<string, string | number | null>>().notNull(),
+  },
+  (t) => ({
+    docIdx: index("dataset_rows_document_idx").on(t.documentId),
   })
 );
 
@@ -389,6 +459,8 @@ export const chunksRelations = relations(chunks, ({ one }) => ({
 export type Organization = typeof organizations.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type Chunk = typeof chunks.$inferSelect;
+export type Metric = typeof metrics.$inferSelect;
+export type DocKind = (typeof docKindEnum.enumValues)[number];
 export type Competitor = typeof competitors.$inferSelect;
 export type MarketNote = typeof marketNotes.$inferSelect;
 export type Objective = typeof objectives.$inferSelect;

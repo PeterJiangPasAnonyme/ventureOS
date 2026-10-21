@@ -29,7 +29,7 @@ export function SetupNotice() {
             </li>
             <li>
               Run <code className="text-foreground">npm run db:seed</code> to load
-              the demo startup (Northwind AI).
+              the demo startup (Ridgeline).
             </li>
           </ol>
           <p>

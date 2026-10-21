@@ -26,6 +26,19 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   });
 }
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** A document's own date, at the precision it was recorded ("day" or "month"). */
+export function formatDocDate(date: Date | null | undefined, precision = "day"): string {
+  if (!date) return "undated";
+  const month = MONTHS[date.getUTCMonth()];
+  if (precision === "month") return `${month} ${date.getUTCFullYear()}`;
+  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`;
+}
+
 export function relativeTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   const diff = Date.now() - d.getTime();
